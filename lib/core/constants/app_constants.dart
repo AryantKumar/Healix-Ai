@@ -12,10 +12,12 @@ class AppConstants {
   static const String historyBox = 'history_box';
   static const String settingsBox = 'settings_box';
   static const String emergencyContactsBox = 'emergency_contacts_box';
+  static const String profilesBox = 'profiles_box';
 
   // Settings keys
   static const String keyOnboardingDone = 'onboarding_done';
   static const String keyUserProfile = 'user_profile';
+  static const String keyActiveProfileId = 'active_profile_id';
 
   // API 
   static const String openRouterApiKey = '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';

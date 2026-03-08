@@ -411,6 +411,7 @@ class _BioInfoScreenState extends State<BioInfoScreen> {
       final db = DatabaseService();
       await db.saveUserProfile(profile.toJson());
       await db.setOnboardingDone(true);
+      await db.setActiveProfileId(profile.id);
 
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(

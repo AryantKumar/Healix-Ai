@@ -4,6 +4,7 @@ import '../../core/theme/app_typography.dart';
 import '../../models/user_profile.dart';
 import '../../services/database_service.dart';
 import '../../widgets/gradient_button.dart';
+import '../../widgets/glass_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -79,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (_nameController.text.isEmpty || age == 0 || height == 0 || weight == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: const Text('Please fill all basic basic fields properly.'), backgroundColor: AppColors.error),
+        SnackBar(content: const Text('Please fill all fields properly.'), backgroundColor: AppColors.error),
       );
       return;
     }
@@ -131,6 +132,157 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ─── Account Actions ───
+
+  void _showSwitchAccountSheet() {
+    final db = DatabaseService();
+    final allProfiles = db.getAllProfiles();
+
+    if (allProfiles.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other accounts found. Use Logout to create a new one.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(color: AppColors.textTertiary, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(height: 20),
+              Text('Switch Account', style: AppTypography.headlineMedium),
+              const SizedBox(height: 20),
+              ...allProfiles.map((profileData) {
+                final p = UserProfile.fromJson(profileData);
+                final isActive = p.id == _profile?.id;
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: isActive ? AppColors.primary : AppColors.surfaceLight,
+                    child: Text(
+                      p.name.isNotEmpty ? p.name[0].toUpperCase() : 'U',
+                      style: TextStyle(color: isActive ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(p.name, style: AppTypography.titleLarge),
+                  subtitle: Text('${p.age} yrs • ${p.gender} • ${p.isForSelf ? "Self" : "Someone else"}', style: AppTypography.bodySmall),
+                  trailing: isActive
+                      ? Icon(Icons.check_circle_rounded, color: AppColors.success)
+                      : null,
+                  onTap: isActive ? null : () async {
+                    await db.switchToProfile(p.id);
+                    if (mounted) {
+                      Navigator.pop(context); // close sheet
+                      _loadProfile();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Switched to ${p.name}'), backgroundColor: AppColors.success),
+                      );
+                    }
+                  },
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  tileColor: isActive ? AppColors.primary.withOpacity(0.08) : null,
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _deleteAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Delete Account', style: AppTypography.headlineMedium),
+        content: Text(
+          'Are you sure you want to delete "${_profile?.name}"? This cannot be undone.',
+          style: AppTypography.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || _profile == null) return;
+
+    final db = DatabaseService();
+    await db.deleteProfile(_profile!.id);
+
+    final remaining = db.getAllProfiles();
+
+    if (remaining.isEmpty) {
+      // No profiles left — go to onboarding
+      await db.setOnboardingDone(false);
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+      }
+    } else {
+      // Switch to first remaining profile
+      final next = UserProfile.fromJson(remaining.first);
+      await db.switchToProfile(next.id);
+      if (mounted) {
+        _loadProfile();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Switched to ${next.name}'), backgroundColor: AppColors.success),
+        );
+      }
+    }
+  }
+
+  void _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Logout', style: AppTypography.headlineMedium),
+        content: Text(
+          'Your profile is saved and you can switch back anytime. Create a new profile?',
+          style: AppTypography.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textTertiary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Logout', style: TextStyle(color: AppColors.warning)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/profile-type', (route) => false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_profile == null) {
@@ -149,7 +301,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: Icon(_isEditing ? Icons.close_rounded : Icons.edit_rounded, color: AppColors.primary),
             onPressed: () {
               if (_isEditing) {
-                // Cancel edit - reload from db
                 _loadProfile();
                 setState(() => _isEditing = false);
               } else {
@@ -192,6 +343,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                _profile!.name,
+                style: AppTypography.headlineLarge,
+              ),
+            ),
             const SizedBox(height: 32),
             
             _buildSectionTitle('Basic Information'),
@@ -216,9 +374,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: _saveProfile,
                 colors: AppColors.recordsGradient,
               ),
+
+            if (!_isEditing) ...[
+              _buildSectionTitle('Account'),
+              const SizedBox(height: 16),
+              _buildAccountActions(),
+            ],
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAccountActions() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.glassBorder),
+      ),
+      child: Column(
+        children: [
+          _buildActionTile(
+            icon: Icons.swap_horiz_rounded,
+            iconColor: AppColors.accent,
+            title: 'Switch Account',
+            subtitle: 'Switch to another saved profile',
+            onTap: _showSwitchAccountSheet,
+          ),
+          Divider(color: AppColors.glassBorder, height: 1),
+          _buildActionTile(
+            icon: Icons.logout_rounded,
+            iconColor: AppColors.warning,
+            title: 'Logout',
+            subtitle: 'Create a new profile (current one is saved)',
+            onTap: _logout,
+          ),
+          Divider(color: AppColors.glassBorder, height: 1),
+          _buildActionTile(
+            icon: Icons.delete_forever_rounded,
+            iconColor: AppColors.error,
+            title: 'Delete Account',
+            subtitle: 'Permanently delete this profile',
+            onTap: _deleteAccount,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: iconColor, size: 22),
+      ),
+      title: Text(title, style: AppTypography.titleLarge),
+      subtitle: Text(subtitle, style: AppTypography.bodySmall),
+      trailing: Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 
