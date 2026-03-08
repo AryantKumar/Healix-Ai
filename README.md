@@ -35,6 +35,7 @@
 | **Health History Timeline** | Automatic timeline of every symptom check, medicine addition, and health event. |
 | **Emergency Mode** | One-tap access to nearby hospitals with call and navigate actions + customizable emergency contacts. |
 | **Editable User Profile** | View and edit your health profile (name, age, blood group, height, weight, allergies, chronic conditions). Your profile context is sent to the AI for personalized responses. |
+| **Multi-Account Support** | Create profiles for yourself and family members (e.g., "Mom"). Switch between accounts instantly, logout to create new profiles, or delete accounts — all from the Profile screen. |
 | **Dark Glassmorphic UI** | Premium dark theme with glass cards, gradient accents, smooth animations, and Google Fonts (Outfit + Inter). |
 
 ---
@@ -55,7 +56,7 @@
 | 10 | **Records** | `views/records/records_screen.dart` | Health document storage |
 | 11 | **History** | `views/history/history_screen.dart` | Health event timeline |
 | 12 | **Emergency** | `views/emergency/emergency_screen.dart` | Nearby hospitals + emergency contacts |
-| 13 | **Profile** | `views/profile/profile_screen.dart` | View/edit user health profile |
+| 13 | **Profile** | `views/profile/profile_screen.dart` | View/edit profile + switch account, logout, delete account |
 
 ---
 
@@ -108,7 +109,7 @@ Healix AI follows a **clean layered architecture** with clear separation of conc
 ### Data & Storage
 | Package | Purpose |
 |---|---|
-| `hive` + `hive_flutter` | Lightweight NoSQL local database (7 boxes: user, records, medicine, chat, history, settings, emergency contacts) |
+| `hive` + `hive_flutter` | Lightweight NoSQL local database (8 boxes: user, records, medicine, chat, history, settings, emergency contacts, profiles) |
 | `flutter_secure_storage` | Encrypted storage for sensitive data |
 
 ### Networking
@@ -297,7 +298,8 @@ A single entry in the health timeline.
 
 ### 4. `DatabaseService`
 - **Engine**: Hive (lightweight NoSQL)
-- **7 Boxes**: `user_box`, `records_box`, `medicine_box`, `chat_box`, `history_box`, `settings_box`, `emergency_contacts_box`
+- **8 Boxes**: `user_box`, `records_box`, `medicine_box`, `chat_box`, `history_box`, `settings_box`, `emergency_contacts_box`, `profiles_box`
+- **Multi-Account**: Supports multiple profiles — `getAllProfiles()`, `switchToProfile()`, `deleteProfile()`, with automatic migration of legacy single-profile data
 - **Operations**: Full CRUD for all entity types
 - **Initialization**: Called in `main()` before `runApp()`
 
@@ -402,8 +404,8 @@ Declared in `android/app/src/main/AndroidManifest.xml`:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/healix_ai.git
-cd healix_ai
+git clone https://github.com/AryantKumar/Healix-Ai.git
+cd Healix-Ai
 
 # 2. Install dependencies
 flutter pub get
